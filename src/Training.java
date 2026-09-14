@@ -1,26 +1,26 @@
 import java.time.Duration;
-import java.time.LocalTime;
+import java.time.LocalDate;
 
 public class Training {
-    private LocalTime time;
+    private LocalDate date;
     private double distanceKm;
     private Duration duration;
 
     public Training() {
     }
 
-    public Training(LocalTime time, double distanceKm, Duration duration) {
-        this.time = time;
+    public Training(LocalDate date, double distanceKm, Duration duration) {
+        this.date = date;
         this.distanceKm = distanceKm;
         this.duration = duration;
     }
 
-    public LocalTime getTime() {
-        return time;
+    public LocalDate getDate() {
+        return date;
     }
 
-    public void setTime(LocalTime time) {
-        this.time = time;
+    public void setDate(LocalDate date) {
+        this.date = date;
     }
 
     public double getDistanceKm() {
@@ -42,7 +42,7 @@ public class Training {
     @Override
     public String toString() {
         return "Training{" +
-                "time=" + time +
+                "date=" + date +
                 ", distanceKm=" + distanceKm +
                 ", duration=" + duration +
                 '}';
