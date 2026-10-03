@@ -20,7 +20,7 @@ Acceptance criteria are numbered locally within each requirement. Where one bloc
 | REQ-F-10 | Edit a Training | AC-1, AC-2 |
 | REQ-F-11 | Delete a Training | AC-1 |
 | REQ-F-12 | Month total distance | AC-1, AC-2 |
-| REQ-F-13 | Month Comparison Chart | AC-1, AC-2, AC-3, AC-4, AC-5 |
+| REQ-F-13 | Month Comparison Chart | AC-1, AC-2, AC-3 |
 
 ## Notes
 
