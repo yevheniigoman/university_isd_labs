@@ -92,7 +92,7 @@ Acceptance criteria are given as `AC-<n>` within each requirement and are stated
 
 #### REQ-F-1 — Account registration
 
-A visitor shall be able to create an account by supplying an email address and a password.
+An unauthenticated user shall be able to create an account by supplying an email address and a password.
 
 - Email addresses are compared case-insensitively. `Runner@Example.com` and `runner@example.com` denote the same account.
 - An email address may be associated with at most one account.
@@ -110,14 +110,12 @@ A registered user shall be able to authenticate with a valid email address and p
 Upon successful authentication the system shall establish a server-maintained session associating the client with the account, and shall present the authenticated views to that client.
 
 - Session state resides on the server, not in client-held storage that the client may alter.
-- The session persists for the duration of the browser session.
 
 #### REQ-F-4 — Record a Training
 
 An authenticated user shall be able to create a Training by supplying a Date, a Distance, and a Duration.
 
 - Each Training shall carry a distinct identity, permitting a specific Training to be subsequently retrieved, updated, or deleted.
-- A Training shall be created in an initial state in which every field is empty or unset.
 
 #### REQ-F-5 — Training Date
 
@@ -137,8 +135,9 @@ A Training's Distance shall be at least 0.01 km and at most 100 km.
 
 #### REQ-F-7 — Training Duration
 
-A Training's Duration shall be supplied in hours, minutes, and seconds via user input, and shall be stored as a single elapsed value independent of that input format.
+A Training's Duration shall be supplied in hours, minutes, and seconds via user input, and shall be stored as a single whole number of seconds independent of that input format.
 
+- Duration shall be stored in whole seconds. A Duration carrying a sub-second component shall be truncated to whole seconds, never rounded, so that a stored Duration is never longer than the one submitted.
 - Duration shall be required and shall be greater than zero.
 - The hours/minutes/seconds split is a user-interface input convention only. Minutes and seconds presented for entry shall each fall within 0–59.
 - The system shall accept and correctly interpret values outside 0–59 when received in stored form, since the stored representation carries no such split.
@@ -186,10 +185,8 @@ The system shall present a bar chart comparing the Month total distance of succe
 - Each bar shall represent one Month, and its value shall be that Month's Month total distance.
 - Bars shall be ordered oldest Month on the left, current Month on the right.
 - A bar's value shall be that Month's total alone. The chart shall not present a cumulative running total, and shall not present a target or goal line.
-- The Month Comparison Range shall extend from the earlier of the user's earliest Training Month or the Month eleven months preceding the current Month, through the current Month inclusive, and shall contain at most twelve Months.
-- Months preceding the user's earliest Training shall not be displayed.
+- The Month Comparison Range shall always consist of the twelve Months beginning with the Month eleven months preceding the current Month and ending with the current Month. It shall not depend on the user's Trainings.
 - An Empty Month shall appear within the Month Comparison Range at a value of zero rather than being omitted.
-- A user with no Trainings shall be presented a chart consisting of the current Month alone at a value of zero.
 
 #### REQ-F-14 — Account data isolation
 
@@ -203,11 +200,11 @@ Passwords shall be stored exclusively as BCrypt hashes. Plaintext passwords shal
 
 #### REQ-NF-2 — Responsive presentation
 
-The application shall be usable from a viewport of 360 px width through desktop. All user-facing views — Training history, Training details, the Training form, and the Month Comparison Chart — shall be usable at every width in this range. With twelve bars at maximum, the Month Comparison Chart shall remain legible on a smartphone, by means of horizontal scrolling or abbreviated labels.
+The application shall be usable from a viewport of 360 px width through desktop. All user-facing views — Training history, Training details, the Training form, and the Month Comparison Chart — shall be usable at every width in this range. With twelve bars always shown, the Month Comparison Chart shall remain legible on a smartphone, by means of horizontal scrolling or abbreviated labels.
 
 #### REQ-NF-3 — Persistence
 
-Trainings and accounts shall be persisted in a relational database comprising two tables: one for users and one for Trainings. Distances shall be stored as integer metres.
+Trainings and accounts shall be persisted in a relational database comprising two tables: one for users and one for Trainings.
 
 #### REQ-NF-4 — Scale
 
@@ -227,7 +224,7 @@ Core business logic shall be developed test-first: a failing test shall be writt
 
 This obligation applies to the logic whose defects would be silent or expensive to diagnose in use, namely:
 
-- the Month Comparison Range derivation and its twelve-Month cap, Empty Month zero-filling, and bar ordering (REQ-F-13)
+- the Month Comparison Range calculation and its twelve-Month length, Empty Month zero-filling, and bar ordering (REQ-F-13)
 - the Month total distance aggregation and its treatment of Months containing no Trainings (REQ-F-12)
 - the validation rules governing Date, Distance, and Duration, including the `serverToday + 1` boundary and the inclusive distance bounds (REQ-F-5, REQ-F-6, REQ-F-7)
 - the normalisation of Distance input to whole metres (REQ-F-6)
@@ -293,11 +290,11 @@ The following terms carry the agreed meanings throughout this document. The syno
 | **Training** | A single manually recorded run, carrying an identity, a Date, a Distance, and a Duration. Distance ≥ 0.01 km and Duration > 0 are both required. |
 | **Date** | A calendar date with no time and no timezone. Never converted. Bounded above by the server's current date plus one day; no earliest date is imposed. |
 | **Distance** | Length in kilometres, accepted to at most two decimal places, normalized on input, stored in whole metres, bounded to [0.01 km, 100 km]. |
-| **Duration** | Elapsed time, required and greater than zero. Hours/minutes/seconds is a user-interface input format only. |
+| **Duration** | Elapsed time in whole seconds, required and greater than zero. Hours/minutes/seconds is a user-interface input format only. Any sub-second component is truncated. |
 | **Month** | A calendar month. |
 | **Month total distance** | The sum of the Distances of the Trainings dated within a Month. Computed, never stored. |
 | **Month Comparison Chart** | The month-over-month bar-chart feature. |
-| **Month Comparison Range** | The Months displayed by the chart: from the earlier of the earliest Training Month or eleven months preceding the current Month, through the current Month, twelve Months maximum. |
+| **Month Comparison Range** | The twelve Months displayed by the chart: the eleven Months preceding the current Month through the current Month. Independent of the user's Trainings. |
 | **Empty Month** | A Month within the Month Comparison Range containing no Trainings. Renders as `0`. |
 
 ---
@@ -311,7 +308,7 @@ Criteria are provided for the core business requirements. Account registration (
 | ID | Criterion |
 |---|---|
 | AC-1 | Given an authenticated user, when they supply a valid Date, Distance, and Duration and submit the form, then the Training is created and appears in their Training history. |
-| AC-2 | Given an unauthenticated visitor, when they attempt to create a Training, then the Training is not created. |
+| AC-2 | Given an unauthenticated user, when they attempt to create a Training, then the Training is not created. |
 
 ### REQ-F-5 — Training Date
 
@@ -358,8 +355,6 @@ Criteria are provided for the core business requirements. Account registration (
 
 | ID | Criterion |
 |---|---|
-| AC-1 | Given a user with no Trainings, when they open the Month Comparison Chart, then exactly one bar is shown, labelled with the current Month, at a value of zero. |
-| AC-2 | Given a user whose earliest Training is 3 Months before the current Month, when they open the chart, then exactly 3 bars are shown: the earliest Training's Month through the current Month. |
-| AC-3 | Given a user whose Trainings span more than 12 Months, when they open the chart, then exactly 12 bars are shown, displaying the most recent 12 Months. |
-| AC-4 | Given the chart is displayed, when it is examined, then the oldest Month is the leftmost bar and the current Month the rightmost. |
-| AC-5 | Given a user with a Training in January and a Training in March but none in February, when the chart is displayed, then February appears between them at a value of zero. |
+| AC-1 | Given a user with no Trainings, with Trainings only in recent Months, or with Trainings spanning more than twelve Months, when they open the Month Comparison Chart, then exactly 12 bars are shown, covering the twelve Months ending with the current Month. |
+| AC-2 | Given the chart is displayed, when it is examined, then the oldest Month is the leftmost bar and the current Month the rightmost. |
+| AC-3 | Given a user with a Training in January and a Training in March but none in February, when the chart is displayed, then February appears between them at a value of zero. |
