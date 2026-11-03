@@ -1,0 +1,522 @@
+openapi: 3.1.0
+info:
+  title: Running Tracker API
+  version: 1.0.0
+  description: |
+    Backend API for Running Tracker v1.
+
+    Authentication uses a server-side session carried by a persistent,
+    HttpOnly `SESSION` cookie (REQ-F-3). There is no logout, password change,
+    or password reset (spec §4).
+
+    All `{id}` endpoints verify ownership and return `404` for a Training that
+    does not belong to the session's account, so existence is not disclosed
+    (REQ-F-14).
+servers:
+  - url: /api
+tags:
+  - name: Auth
+    description: Account registration and login, plus the current session.
+  - name: Trainings
+    description: Recording, viewing, editing, and deleting Trainings.
+  - name: Chart
+    description: Data for the Month Comparison Chart.
+security:
+  - sessionCookie: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Register an account
+      description: |
+        Creates an account if the email is available. The response is identical
+        whether or not the email is already registered (REQ-F-1 anti-enumeration).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: runner@example.com
+              password: correct-horse-battery
+      responses:
+        '204':
+          description: Accepted. Never discloses whether the email is already registered.
+        '400':
+          description: Malformed request or invalid email format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Invalid email format.
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in
+      description: |
+        Verifies credentials and establishes a server-side session. The same
+        `401` response is returned for an unknown email and a wrong password
+        (REQ-F-2).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: runner@example.com
+              password: correct-horse-battery
+      responses:
+        '200':
+          description: Authenticated; server-side session established.
+          headers:
+            Set-Cookie:
+              description: Persistent HttpOnly session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              example:
+                email: runner@example.com
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Invalid email or password
+  /auth/session:
+    get:
+      tags: [Auth]
+      operationId: getSession
+      summary: Get the current session
+      description: Returns the authenticated account, or `401` if there is no valid session.
+      responses:
+        '200':
+          description: The current session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              example:
+                email: runner@example.com
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+  /trainings:
+    get:
+      tags: [Trainings]
+      operationId: listTrainings
+      summary: Get Training history
+      description: |
+        All of the user's Trainings, grouped by Month, newest Month first.
+        Within a group, Trainings are newest date first. Each group carries its
+        total distance (REQ-F-12). No pagination (REQ-F-8).
+      responses:
+        '200':
+          description: 'Training history. An empty history is `{ "months": [] }`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryResponse'
+              example:
+                months:
+                  - month: '2026-11'
+                    totalDistanceKm: 10.0
+                    trainings:
+                      - id: 42
+                        date: '2026-11-03'
+                        distanceKm: 5.2
+                        durationSeconds: 1800
+                      - id: 41
+                        date: '2026-11-01'
+                        distanceKm: 4.8
+                        durationSeconds: 1500
+                  - month: '2026-10'
+                    totalDistanceKm: 7.5
+                    trainings:
+                      - id: 38
+                        date: '2026-10-28'
+                        distanceKm: 7.5
+                        durationSeconds: 2400
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+    post:
+      tags: [Trainings]
+      operationId: createTraining
+      summary: Record a Training
+      description: Records a Training for the authenticated account (REQ-F-4).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingInput'
+            example:
+              date: '2026-11-03'
+              distanceKm: 5.2
+              durationSeconds: 1800
+      responses:
+        '201':
+          description: Training created.
+          headers:
+            Location:
+              description: URL of the created Training.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Training'
+              example:
+                id: 43
+                date: '2026-11-03'
+                distanceKm: 5.2
+                durationSeconds: 1800
+        '400':
+          description: |
+            Validation failure: date later than `serverToday + 1` (REQ-F-5),
+            distance outside `[0.01, 100]` km (REQ-F-6), or duration not
+            greater than zero (REQ-F-7).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Distance must be between 0.01 and 100 km.
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+  /trainings/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifier of the Training.
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [Trainings]
+      operationId: getTraining
+      summary: Get Training details
+      description: Returns the Date, Distance, and Duration of the requested Training (REQ-F-9).
+      responses:
+        '200':
+          description: The Training.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Training'
+              example:
+                id: 42
+                date: '2026-11-03'
+                distanceKm: 5.2
+                durationSeconds: 1800
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+        '404':
+          description: Not found or not owned by the session's account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Training not found.
+    put:
+      tags: [Trainings]
+      operationId: updateTraining
+      summary: Update a Training
+      description: Full replacement. Validation is identical to creation (REQ-F-10).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingInput'
+            example:
+              date: '2026-11-03'
+              distanceKm: 6.0
+              durationSeconds: 2000
+      responses:
+        '200':
+          description: Updated Training.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Training'
+              example:
+                id: 42
+                date: '2026-11-03'
+                distanceKm: 6.0
+                durationSeconds: 2000
+        '400':
+          description: Validation failure (same rules as creation).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Date must not be later than tomorrow.
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+        '404':
+          description: Not found or not owned by the session's account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Training not found.
+    delete:
+      tags: [Trainings]
+      operationId: deleteTraining
+      summary: Delete a Training
+      description: Permanently removes the Training (REQ-F-11).
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+        '404':
+          description: Not found or not owned by the session's account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Training not found.
+  /month-comparison:
+    get:
+      tags: [Chart]
+      operationId: getMonthComparison
+      summary: Get Month Comparison Chart data
+      description: |
+        Exactly twelve Months, oldest first, ending with the current Month.
+        Months with no Trainings report `0`. Independent of the user's data
+        (REQ-F-13).
+      responses:
+        '200':
+          description: Twelve Month totals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthComparisonResponse'
+              example:
+                months:
+                  - month: '2025-12'
+                    totalDistanceKm: 0.0
+                  - month: '2026-01'
+                    totalDistanceKm: 12.3
+                  - month: '2026-02'
+                    totalDistanceKm: 0.0
+                  - month: '2026-03'
+                    totalDistanceKm: 8.0
+                  - month: '2026-04'
+                    totalDistanceKm: 15.4
+                  - month: '2026-05'
+                    totalDistanceKm: 0.0
+                  - month: '2026-06'
+                    totalDistanceKm: 9.6
+                  - month: '2026-07'
+                    totalDistanceKm: 0.0
+                  - month: '2026-08'
+                    totalDistanceKm: 11.2
+                  - month: '2026-09'
+                    totalDistanceKm: 6.5
+                  - month: '2026-10'
+                    totalDistanceKm: 7.5
+                  - month: '2026-11'
+                    totalDistanceKm: 10.0
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Not authenticated.
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SESSION
+  schemas:
+    Error:
+      description: Standard error response body.
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+    RegisterRequest:
+      description: Registration credentials. The email is compared case-insensitively (REQ-F-1).
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+    LoginRequest:
+      description: Login credentials (REQ-F-2).
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+    Session:
+      description: The authenticated account (REQ-F-3).
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    TrainingInput:
+      description: Fields submitted when creating or updating a Training (REQ-F-4, REQ-F-5, REQ-F-6, REQ-F-7).
+      type: object
+      additionalProperties: false
+      required: [date, distanceKm, durationSeconds]
+      properties:
+        date:
+          type: string
+          format: date
+        distanceKm:
+          type: number
+          multipleOf: 0.01
+          minimum: 0.01
+          maximum: 100
+        durationSeconds:
+          type: integer
+          minimum: 1
+    Training:
+      description: A recorded Training with its server-assigned identity.
+      type: object
+      additionalProperties: false
+      required: [id, date, distanceKm, durationSeconds]
+      properties:
+        id:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        distanceKm:
+          type: number
+          multipleOf: 0.01
+          minimum: 0.01
+          maximum: 100
+        durationSeconds:
+          type: integer
+          minimum: 1
+    MonthGroup:
+      description: One Month of Training history, headed by its total distance (REQ-F-8, REQ-F-12).
+      type: object
+      additionalProperties: false
+      required: [month, totalDistanceKm, trainings]
+      properties:
+        month:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        totalDistanceKm:
+          type: number
+          minimum: 0
+          multipleOf: 0.01
+        trainings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Training'
+    HistoryResponse:
+      description: The user's full Training history, grouped by Month (REQ-F-8).
+      type: object
+      additionalProperties: false
+      required: [months]
+      properties:
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthGroup'
+    MonthComparisonPoint:
+      description: One bar of the Month Comparison Chart, a Month and its total distance (REQ-F-13).
+      type: object
+      additionalProperties: false
+      required: [month, totalDistanceKm]
+      properties:
+        month:
+          type: string
+          pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        totalDistanceKm:
+          type: number
+          minimum: 0
+          multipleOf: 0.01
+    MonthComparisonResponse:
+      description: Twelve consecutive Months of totals for the Month Comparison Chart (REQ-F-13).
+      type: object
+      additionalProperties: false
+      required: [months]
+      properties:
+        months:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/MonthComparisonPoint'
