@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: running-tracker
+  datasource:
+    url: jdbc:h2:mem:running-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+server:
+  servlet:
+    session:
+      cookie:
+        name: SESSION
+        http-only: true
+        same-site: lax
+        max-age: 30d
