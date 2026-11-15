@@ -62,7 +62,16 @@ public class MonthTotalAggregator {
      *         {@code 0.00} when no Training falls within it
      */
     public BigDecimal totalKilometres(Collection<Training> trainings, YearMonth month) {
-        long totalMetres = totalMetres(trainings, month);
+        return toKilometres(totalMetres(trainings, month));
+    }
+
+    /**
+     * Converts an already-summed metre total to kilometres with two decimal
+     * places. Stored distances are whole multiples of 10 m (REQ-F-6), so the
+     * conversion is exact and {@code UNNECESSARY} fails loudly if that
+     * invariant is ever broken.
+     */
+    public BigDecimal toKilometres(long totalMetres) {
         return BigDecimal.valueOf(totalMetres, 3).setScale(2, RoundingMode.UNNECESSARY);
     }
 

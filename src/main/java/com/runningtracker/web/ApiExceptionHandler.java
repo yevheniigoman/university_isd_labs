@@ -2,6 +2,8 @@ package com.runningtracker.web;
 
 import com.runningtracker.auth.exception.InvalidCredentialsException;
 import com.runningtracker.dto.ErrorResponse;
+import com.runningtracker.training.TrainingNotFoundException;
+import com.runningtracker.validation.TrainingValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -40,5 +42,17 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse onInvalidCredentials(InvalidCredentialsException exception) {
         return new ErrorResponse("Invalid email or password");
+    }
+
+    @ExceptionHandler(TrainingValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse onTrainingValidationFailure(TrainingValidationException exception) {
+        return new ErrorResponse(exception.getMessage());
+    }
+
+    @ExceptionHandler(TrainingNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse onTrainingNotFound(TrainingNotFoundException exception) {
+        return new ErrorResponse(exception.getMessage());
     }
 }

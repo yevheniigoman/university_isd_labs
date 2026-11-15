@@ -68,4 +68,14 @@ public class Training {
     public UserAccount getOwner() {
         return owner;
     }
+
+    /**
+     * Replaces the mutable fields of a Training (REQ-F-10). Values are expected
+     * to have already passed the field validators.
+     */
+    public void update(LocalDate date, int distanceMetres, int durationSeconds) {
+        this.date = date;
+        this.distanceMetres = distanceMetres;
+        this.durationSeconds = durationSeconds;
+    }
 }
