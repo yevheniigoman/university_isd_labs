@@ -2,6 +2,7 @@ package com.runningtracker.training;
 
 import com.runningtracker.domain.Training;
 import com.runningtracker.repository.TrainingRepository;
+import com.runningtracker.repository.MonthlyGoalRepository;
 import com.runningtracker.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,11 +42,15 @@ class TrainingControllerTest {
     private TrainingRepository trainings;
 
     @Autowired
+    private MonthlyGoalRepository goals;
+
+    @Autowired
     private UserAccountRepository users;
 
     @BeforeEach
     void cleanDatabase() {
         trainings.deleteAll();
+        goals.deleteAll();
         users.deleteAll();
     }
 

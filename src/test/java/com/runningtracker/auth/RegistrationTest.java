@@ -1,5 +1,6 @@
 package com.runningtracker.auth;
 
+import com.runningtracker.repository.MonthlyGoalRepository;
 import com.runningtracker.repository.UserAccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,9 @@ class RegistrationTest {
     private MockMvc mockMvc;
 
     @Autowired
+    private MonthlyGoalRepository goals;
+
+    @Autowired
     private UserAccountRepository users;
 
     @Autowired
@@ -30,6 +34,7 @@ class RegistrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        goals.deleteAll();
         users.deleteAll();
     }
 

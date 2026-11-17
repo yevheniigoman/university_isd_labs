@@ -2,7 +2,9 @@ package com.runningtracker.web;
 
 import com.runningtracker.auth.exception.InvalidCredentialsException;
 import com.runningtracker.dto.ErrorResponse;
+import com.runningtracker.goal.GoalNotFoundException;
 import com.runningtracker.training.TrainingNotFoundException;
+import com.runningtracker.validation.GoalValidationException;
 import com.runningtracker.validation.TrainingValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -53,6 +55,18 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TrainingNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse onTrainingNotFound(TrainingNotFoundException exception) {
+        return new ErrorResponse(exception.getMessage());
+    }
+
+    @ExceptionHandler(GoalValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse onGoalValidationFailure(GoalValidationException exception) {
+        return new ErrorResponse(exception.getMessage());
+    }
+
+    @ExceptionHandler(GoalNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse onGoalNotFound(GoalNotFoundException exception) {
         return new ErrorResponse(exception.getMessage());
     }
 }
