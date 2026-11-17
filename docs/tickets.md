@@ -1,12 +1,12 @@
 # Tickets — Running Tracker v1
 
-**Source:** [`spec/SPEC_running_tracker_v1.md`](../spec/SPEC_running_tracker_v1.md)
-**Date:** 2026-10-02
+**Source:** [`spec/SPEC_running_tracker_v1.md`](../spec/SPEC_running_tracker_v1.md), [`spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md`](../spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md)
+**Date:** 2026-10-02, amended 2026-11-15
 **Conventions:** `spec/SPEC_running_tracker_v1.md`, REQ-DP-2.
 
 Primary decomposition of the approved specification into implementation tickets. Every ticket traces to one or more requirement identifiers. No ticket introduces a feature absent from the specification.
 
-Acceptance criteria are quoted from the specification's [Appendix B](../spec/SPEC_running_tracker_v1.md#appendix-b-acceptance-criteria-index). Requirements whose behaviour is conventional carry no criteria, so their tickets close against requirement prose alone.
+Acceptance criteria are quoted from the parent specification's [Appendix B](../spec/SPEC_running_tracker_v1.md#appendix-b-acceptance-criteria-index) or, for `REQ-F-15`, from [addendum 1](../spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md#4-acceptance-criteria). Requirements whose behaviour is conventional carry no criteria, so their tickets close against requirement prose alone.
 
 ---
 
@@ -27,8 +27,9 @@ Acceptance criteria are quoted from the specification's [Appendix B](../spec/SPE
 | 11 | Training delete | Details | REQ-F-11 | 4, 9 |
 | 12 | Month Comparison Chart data | Chart | REQ-F-13 | 7 |
 | 13 | Chart rendering | Chart | REQ-F-13, REQ-NF-2 | 12 |
+| 14 | Monthly distance goals | Goals | REQ-F-15 | 1, 3, 7 |
 
-Fourteen functional requirements are covered. `REQ-F-14` (account data isolation) is not a standalone ticket; its ownership check is carried by tickets 9, 10, and 11, which are the only flows that act on a client-supplied Training identifier.
+Fifteen functional requirements are covered. `REQ-F-14` (account data isolation) is not a standalone ticket; its ownership check is carried by tickets 9, 10, and 11, which are the only flows that act on a client-supplied Training identifier. `REQ-F-15` (monthly distance goals) is defined by [addendum 1](../spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md) rather than the parent specification, and is carried by ticket 14.
 
 ---
 
@@ -237,3 +238,35 @@ The chart shall remain legible at a 360 px viewport. With twelve bars always sho
 **Sources:** REQ-F-13, REQ-NF-2.
 
 **Acceptance criteria:** none beyond those closed by ticket 12; the rendering constraint is carried by REQ-NF-2, which has no criteria of its own.
+
+---
+
+## Goals
+
+### 14. Monthly distance goals
+
+Set, view, replace, and remove a target distance for a Month, and derive progress toward it from the account's current Trainings.
+
+The feature is defined by [addendum 1](../spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md), not by the parent specification. It adds a `monthly_goals` table keyed by account and Goal Month, with a unique constraint on `(user_id, goal_month)` so that replacement is the only way to change a target and a second goal for the same Month cannot exist.
+
+Progress is never stored. Completed distance is the Month total distance of ticket 7, Remaining distance is the Target distance minus Completed distance floored at zero, and Percent complete is Completed distance over Target distance to one decimal place, uncapped. Because the figures are derived, creating, editing, re-dating, or deleting a Training changes progress on the next request with no correction step.
+
+Target distance is validated on the same pattern as Training Distance (ticket 5): range checked first, then any component beyond two decimal places truncated toward zero, then stored in whole metres. The range is wider — [0.01 km, 1000 km] — because a monthly target is larger than a single Training.
+
+Goals are exposed by their own endpoints and are deliberately absent from the Month Comparison Chart, which `REQ-F-13` forbids from carrying a target or goal line.
+
+**Sources:** REQ-F-15.
+
+**Depends on:** ticket 1 (accounts), ticket 3 (session authentication), ticket 7 (Month total distance, reused for Completed distance).
+
+**Endpoints.** `PUT /api/goals/{month}` sets or replaces a goal and returns its progress; `GET /api/goals/{month}` returns one goal's progress; `DELETE /api/goals/{month}` removes it; `GET /api/goals` lists the goals in the current Month Comparison Range. `{month}` is a `YYYY-MM` path segment. `docs/openapi.yml` gains these paths and their schemas when the ticket is implemented.
+
+**Acceptance criteria:**
+
+| Requirement | Criteria |
+|---|---|
+| REQ-F-15 | AC-1 (a valid Target distance is recorded for the Month and stored in whole metres), AC-2 (an out-of-range Target distance or malformed Goal Month is rejected and changes nothing), AC-3 (setting a second target for the same Month replaces the first, leaving exactly one goal), AC-4 (progress arithmetic: 32.50 of 50.00 yields 17.50 remaining and 65.0 percent), AC-5 (overshoot floors Remaining distance at zero and leaves Percent complete uncapped at 125.0), AC-6 (the twelve-Month listing is oldest first and omits Months without a goal) |
+
+**Test-first obligations.** `REQ-DP-1` applies: Target distance validation, Goal Month validation, replacement, progress arithmetic including the zero floor and uncapped percentage, progress recomputation after Training mutation, the twelve-Month listing, and account isolation are all written as tests before their implementation.
+
+**Not in this ticket.** Goal notifications, streaks, multi-Month targets, goal history, goal sharing, and automatic suggestions — see addendum 1, [section 6](../spec/SPEC_running_tracker_v1_addendum_1_monthly_goals.md#6-out-of-scope).
